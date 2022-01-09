@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/owenliang/crontab/common"
+	"crontab/common"
 )
 
 type Executor struct {

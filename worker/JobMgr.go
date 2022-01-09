@@ -4,9 +4,10 @@ import (
 	"context"
 	"time"
 
+	"crontab/common"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
-	"github.com/owenliang/crontab/common"
 )
 
 type JobMgr struct {
@@ -81,21 +82,21 @@ func (jobMgr *JobMgr) watchKiller() {
 		jobName    string
 		job        *common.Job
 	)
-	// 监听/cron/killer目录
-	go func() { // 监听协程
-		// 监听/cron/killer/目录的变化
+
+	go func() {
+
 		watchChan = jobMgr.watcher.Watch(context.TODO(), common.JOB_KILLER_DIR, clientv3.WithPrefix())
-		// 处理监听事件
+
 		for watchResp = range watchChan {
 			for _, watchEvent = range watchResp.Events {
 				switch watchEvent.Type {
-				case mvccpb.PUT: // 杀死任务事件
+				case mvccpb.PUT:
 					jobName = common.ExtractKillerName(string(watchEvent.Kv.Key))
 					job = &common.Job{Name: jobName}
 					jobEvent = common.BuildJobEvent(common.JOB_EVENT_KILL, job)
-					// 事件推给scheduler
+
 					G_scheduler.PushJobEvent(jobEvent)
-				case mvccpb.DELETE: // killer标记过期, 被自动删除
+				case mvccpb.DELETE:
 				}
 			}
 		}
@@ -111,23 +112,19 @@ func InitJobMgr() (err error) {
 		watcher clientv3.Watcher
 	)
 
-	// 初始化配置
 	config = clientv3.Config{
-		Endpoints:   G_config.EtcdEndpoints,                                     // 集群地址
-		DialTimeout: time.Duration(G_config.EtcdDialTimeout) * time.Millisecond, // 连接超时
+		Endpoints:   G_config.EtcdEndpoints,
+		DialTimeout: time.Duration(G_config.EtcdDialTimeout) * time.Millisecond,
 	}
 
-	// 建立连接
 	if client, err = clientv3.New(config); err != nil {
 		return
 	}
 
-	// 得到KV和Lease的API子集
 	kv = clientv3.NewKV(client)
 	lease = clientv3.NewLease(client)
 	watcher = clientv3.NewWatcher(client)
 
-	// 赋值单例
 	G_jobMgr = &JobMgr{
 		client:  client,
 		kv:      kv,
@@ -135,16 +132,13 @@ func InitJobMgr() (err error) {
 		watcher: watcher,
 	}
 
-	// 启动任务监听
 	G_jobMgr.watchJobs()
 
-	// 启动监听killer
 	G_jobMgr.watchKiller()
 
 	return
 }
 
-// 创建任务执行锁
 func (jobMgr *JobMgr) CreateJobLock(jobName string) (jobLock *JobLock) {
 	jobLock = InitJobLock(jobName, jobMgr.kv, jobMgr.lease)
 	return

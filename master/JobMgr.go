@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"crontab/common"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
-	"github.com/owenliang/crontab/common"
 )
 
 // task manager
@@ -32,8 +33,8 @@ func InitJobMgr() (err error) {
 
 	// initialzie configuration
 	config = clientv3.Config{
-		Endpoints:   G_config.EtcdEndpoints,                                     // 集群地址
-		DialTimeout: time.Duration(G_config.EtcdDialTimeout) * time.Millisecond, // 连接超时
+		Endpoints:   G_config.EtcdEndpoints,
+		DialTimeout: time.Duration(G_config.EtcdDialTimeout) * time.Millisecond,
 	}
 
 	// initialzie connection
@@ -155,7 +156,6 @@ func (jobMgr *JobMgr) KillJob(name string) (err error) {
 
 	leaseId = leaseGrantResp.ID
 
-	// 设置killer标记
 	if _, err = jobMgr.kv.Put(context.TODO(), killerKey, "", clientv3.WithLease(leaseId)); err != nil {
 		return
 	}
